@@ -15,14 +15,17 @@ data Jugador = Jugador {
 carolina = Jugador {nombre = "Carolina", cantidadDinero = 500, tacticaJuego = "Accionista", propiedadesCompradas= [], acciones = [pasarPorElBanco, pagarAAccionistas]}
 manuel = Jugador {nombre = "Manuel", cantidadDinero = 500, tacticaJuego = "Oferente singular", propiedadesCompradas= [], acciones = [pasarPorElBanco, enojarse] }
 
+sumarDinero :: Jugador -> Int -> Int
+sumarDinero unJugador dinero = (cantidadDinero unJugador) + dinero
+
 pasarPorElBanco :: Accion
-pasarPorElBanco unJugador = Jugador {cantidadDinero = (cantidadDinero unJugador) + 40, tacticaJuego  = "Comprador compulsivo"}
+pasarPorElBanco unJugador = unJugador {cantidadDinero = sumarDinero unJugador 40, tacticaJuego  = "Comprador compulsivo"}
 
 enojarse :: Accion
-enojarse unJugador = Jugador {cantidadDinero = (cantidadDinero unJugador) + 50, acciones = (acciones unJugador) ++ [gritar]}
+enojarse unJugador = unJugador {cantidadDinero = sumarDinero unJugador 50, acciones = gritar : (acciones unJugador)}
 
 gritar :: Accion
-gritar unJugador = Jugador {nombre =  "AHHHH" ++ (nombre unJugador)}
+gritar unJugador = unJugador {nombre =  "AHHHH" ++ (nombre unJugador)}
 
 esAccionista :: Jugador -> Bool
 esAccionista unJugador = (tacticaJuego unJugador) == "Accionista"
@@ -31,19 +34,25 @@ puedeGanarSubastas :: Jugador -> Bool
 puedeGanarSubastas unJugador = (tacticaJuego unJugador) == "Oferente singular" || esAccionista unJugador
 
 subastar :: Propiedad -> Accion
-subastar unaPropiedad unJugador| (puedeGanarSubastas unJugador) = Jugador {cantidadDinero = (cantidadDinero unJugador) - (snd unaPropiedad), propiedadesCompradas = (propiedadesCompradas unJugador) ++ [unaPropiedad]} | otherwise = unJugador
+subastar unaPropiedad unJugador
+    | (puedeGanarSubastas unJugador) = unJugador {cantidadDinero = sumarDinero unJugador (snd unaPropiedad)*(-1), propiedadesCompradas = unaPropiedad : (propiedadesCompradas unJugador)}
+    | otherwise = unJugador
 
 esBarata :: Propiedad -> Bool
 esBarata (_, precio) = precio < 150
 
-esCara :: Propiedad -> Bool
-esCara (_, precio) = precio >= 150
+calcularAlquileres :: Propiedad -> Int
+calcularAlquileres propiedad 
+    |esBarata propiedad = 10
+    |otherwise = 20
 
 precioTotalAlquileres :: [Propiedad] -> Int
-precioTotalAlquileres prop = (length (filter esBarata prop))*10 + (length (filter esCara prop))*20
+precioTotalAlquileres = sum.map calcularAlquileres
 
 cobrarAlquileres :: Accion
-cobrarAlquileres unJugador = Jugador {cantidadDinero = (cantidadDinero unJugador) - (precioTotalAlquileres (propiedadesCompradas unJugador))}
+cobrarAlquileres unJugador = unJugador {cantidadDinero = sumarDinero unJugador (precioTotalAlquileres (propiedadesCompradas unJugador))*(-1)}
 
 pagarAAccionistas :: Accion
-pagarAAccionistas unJugador | esAccionista unJugador = Jugador {cantidadDinero = (cantidadDinero unJugador) + 200} | otherwise = Jugador {cantidadDinero = (cantidadDinero unJugador) - 100}
+pagarAAccionistas unJugador
+    | esAccionista unJugador = unJugador {cantidadDinero = sumarDinero unJugador 200} 
+    | otherwise = unJugador {cantidadDinero = sumarDinero unJugador 100}
