@@ -15,17 +15,32 @@ data Jugador = Jugador {
 carolina = Jugador {nombre = "Carolina", cantidadDinero = 500, tacticaJuego = "Accionista", propiedadesCompradas= [], acciones = [pasarPorElBanco, pagarAAccionistas]}
 manuel = Jugador {nombre = "Manuel", cantidadDinero = 500, tacticaJuego = "Oferente singular", propiedadesCompradas= [], acciones = [pasarPorElBanco, enojarse] }
 
-sumarDinero :: Jugador -> Int -> Int
-sumarDinero unJugador dinero = (cantidadDinero unJugador) + dinero
+cambiarNombre :: String -> Accion
+cambiarNombre prefijo unJugador= unJugador {nombre = prefijo ++ (nombre unJugador)}
+
+cambiarCantidadDinero :: Int -> Accion
+cambiarCantidadDinero monto unJugador= unJugador {cantidadDinero = (cantidadDinero unJugador) + monto}
+
+cambiarTacticaJuego :: String -> Accion
+cambiarTacticaJuego unaTactica unJugador= unJugador {tacticaJuego = unaTactica}
+
+cambiarPropiedadesCompradas :: Propiedad -> Accion
+cambiarPropiedadesCompradas unaPropiedad unJugador= unJugador {propiedadesCompradas = unaPropiedad : (propiedadesCompradas unJugador)}
+
+cambiarAcciones :: Accion -> Accion
+cambiarAcciones unaAccion unJugador= unJugador {acciones = unaAccion : (acciones unJugador)}
+
+precioPropiedad :: Propiedad -> Int
+precioPropiedad unaPropiedad = snd unaPropiedad
 
 pasarPorElBanco :: Accion
-pasarPorElBanco unJugador = unJugador {cantidadDinero = sumarDinero unJugador 40, tacticaJuego  = "Comprador compulsivo"}
+pasarPorElBanco= cambiarCantidadDinero 40 .cambiarTacticaJuego "Comprador compulsivo"
 
 enojarse :: Accion
-enojarse unJugador = unJugador {cantidadDinero = sumarDinero unJugador 50, acciones = gritar : (acciones unJugador)}
+enojarse= cambiarCantidadDinero 50 .cambiarAcciones enojarse
 
 gritar :: Accion
-gritar unJugador = unJugador {nombre =  "AHHHH" ++ (nombre unJugador)}
+gritar= cambiarNombre "AHHHH"
 
 esAccionista :: Jugador -> Bool
 esAccionista unJugador = (tacticaJuego unJugador) == "Accionista"
@@ -33,26 +48,42 @@ esAccionista unJugador = (tacticaJuego unJugador) == "Accionista"
 puedeGanarSubastas :: Jugador -> Bool
 puedeGanarSubastas unJugador = (tacticaJuego unJugador) == "Oferente singular" || esAccionista unJugador
 
+comprarPropiedad :: Propiedad -> Accion
+comprarPropiedad unaPropiedad unJugador = cambiarCantidadDinero (- precioPropiedad unaPropiedad) (cambiarPropiedadesCompradas unaPropiedad unJugador)
+
 subastar :: Propiedad -> Accion
 subastar unaPropiedad unJugador
-    | (puedeGanarSubastas unJugador) = unJugador {cantidadDinero = sumarDinero unJugador (snd unaPropiedad)*(-1), propiedadesCompradas = unaPropiedad : (propiedadesCompradas unJugador)}
-    | otherwise = unJugador
+    | puedeGanarSubastas unJugador= comprarPropiedad unaPropiedad unJugador
+    | otherwise = unJugador 
 
 esBarata :: Propiedad -> Bool
-esBarata (_, precio) = precio < 150
+esBarata unaPropiedad = (precioPropiedad unaPropiedad) < 150
 
 calcularAlquileres :: Propiedad -> Int
-calcularAlquileres propiedad 
-    |esBarata propiedad = 10
+calcularAlquileres unaPropiedad 
+    |esBarata unaPropiedad = 10
     |otherwise = 20
 
 precioTotalAlquileres :: [Propiedad] -> Int
 precioTotalAlquileres = sum.map calcularAlquileres
 
 cobrarAlquileres :: Accion
-cobrarAlquileres unJugador = unJugador {cantidadDinero = sumarDinero unJugador (precioTotalAlquileres (propiedadesCompradas unJugador))*(-1)}
+cobrarAlquileres unJugador= cambiarCantidadDinero (- precioTotalAlquileres (propiedadesCompradas unJugador)) unJugador
 
 pagarAAccionistas :: Accion
 pagarAAccionistas unJugador
-    | esAccionista unJugador = unJugador {cantidadDinero = sumarDinero unJugador 200} 
-    | otherwise = unJugador {cantidadDinero = sumarDinero unJugador 100}
+    | esAccionista unJugador= cambiarCantidadDinero 200 unJugador  
+    | otherwise = cambiarCantidadDinero (-100) unJugador
+
+hacerBerrinchePor :: Propiedad -> Accion
+hacerBerrinchePor unaPropiedad unJugador 
+    | (cantidadDinero unJugador) < (precioPropiedad unaPropiedad) = hacerBerrinchePor unaPropiedad (cambiarAcciones gritar (cambiarCantidadDinero 10  unJugador))
+    | otherwise = comprarPropiedad unaPropiedad unJugador  
+
+ultimaRonda :: Jugador -> Accion
+ultimaRonda unJugador = foldl1 (.) (acciones unJugador)
+
+juegoFinal :: Jugador -> Jugador -> Jugador
+juegoFinal caro manu
+    | (cantidadDinero ((ultimaRonda caro) caro)) > (cantidadDinero ((ultimaRonda manu) manu)) = caro
+    | otherwise = manu
